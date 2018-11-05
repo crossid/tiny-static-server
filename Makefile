@@ -24,7 +24,7 @@ os = $(word 1, $@)
 
 $(PLATFORMS):
 	mkdir -p release
-	GOOS=$(os) GOARCH=amd64 $(GOBUILD) -o release/$(BINARY)-$(VERSION)-$(os)-amd64 serve.go
+	GOOS=$(os) GOARCH=amd64 CGO_ENABLED=0 $(GOBUILD) -o release/$(BINARY)-$(VERSION)-$(os)-amd64 serve.go
 
 .PHONY: release
 release: linux darwin
