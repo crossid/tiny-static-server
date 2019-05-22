@@ -1,0 +1,8 @@
+{
+	"endpoints": [
+		{
+			"file": "index.html",
+			"pattern": "/"
+		}
+	]
+}
