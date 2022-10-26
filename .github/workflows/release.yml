@@ -1,0 +1,61 @@
+name: release
+
+on: workflow_dispatch
+
+env:
+  GOLANG_VERSION: "1.19.2"
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    env:
+      DIST: ${{ github.workspace }}/dist
+      EXEC: crossid
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ env.GOLANG_VERSION }}
+
+      - name: Check out
+        uses: actions/checkout@v3.1.0
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+
+      - name: Set version to env
+        run: |
+          echo "VERSION=`git describe --abbrev=4 --tags`" >> $GITHUB_ENV
+          echo "TAG=`git describe --abbrev=0 --tags`" >> $GITHUB_ENV
+      - name: Set artifact to env
+        run: |
+          echo "ARTIFACT_LINUX=${{ env.EXEC }}-${{ env.VERSION }}-linux-amd64" >> $GITHUB_ENV
+
+      - name: Build
+        run: |
+          mkdir -p ${{ env.DIST }}/binaries
+          CGO_ENABLED=0 GOARCH=amd64 go build -ldflags="-X 'main.Version=${{ env.VERSION }}'" -o ${{ env.DIST }}/binaries/${{ env.ARTIFACT_LINUX }} serve.go cfg.go
+          tar -cvzf ${{ env.DIST }}/binaries/${{ env.ARTIFACT_LINUX }}.tar.gz -C ${{ env.DIST }}/binaries ${{ env.ARTIFACT_LINUX }}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ env.VERSION }}
+          release_name: Release ${{ env.VERSION }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Asset
+        id: upload-release-asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: ${{ env.DIST }}/binaries/${{ env.ARTIFACT_LINUX }}.tar.gz
+          asset_name: ${{ env.ARTIFACT_LINUX }}.tar.gz
+          asset_content_type: application/gzip
